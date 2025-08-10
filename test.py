@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
 df = pd.read_csv("movies.csv")
 
 print(f"Dataset Shape:\n{df.shape}")
@@ -19,6 +18,8 @@ print(f"Categorical columns:\n{categorical_cols}")
 print("-----------------------------------------------------------------")
 print(f"Missing Values:\n{df.isna().sum()}")
 print("-----------------------------------------------------------------")
+print(f"duplicated Values:\n{df.duplicated().sum()}")
+print("-----------------------------------------------------------------")
 print(f"Dataset statistic Information:\n{df.describe()}")
 print("-----------------------------------------------------------------")
 
@@ -27,14 +28,12 @@ print("-----------------------------------------------------------------")
 #-----------------
 
 
-df["Worldwide Gross"] = pd.to_numeric(df["Worldwide Gross"].replace('[$]', '', regex=True).str.strip(),errors='coerce')
+df["Worldwide Gross"] = pd.to_numeric(df["Worldwide Gross"].replace('[$]', '', regex=True).str.strip()).astype(float)
+print(df.dtypes)
 
 fill_with_median = ["Worldwide Gross", "Profitability"]
 fill_with_mean = ["Rotten Tomatoes %", "Audience score %"]
 fill_with_mode = ["Genre", "Lead Studio", "Year"]
-
-print(df)
-print(df.dtypes)
 
 # Fill with median
 for col in fill_with_median:
@@ -53,56 +52,46 @@ for col in fill_with_mode:
 
 print(df.isna().sum())
 
+#---------------------
+# 3- Handle Duplicates
+#---------------------
 
-# # Special case: Worldwide Gross might be string like "$1,234.5"
-# if df["Worldwide Gross"].dtype == object:
-#     df["Worldwide Gross"] = (
-#         df["Worldwide Gross"]
-#         .replace('[\$,]', '', regex=True)
-#         .astype(float)
-#     )
-#
-# # --- Handle Duplicates ---
-# df = df.drop_duplicates(subset=["Film"], keep="first")
-#
-# # --- Feature Engineering ---
-# df["Decade"] = (df["Year"] // 10 * 10).astype(str) + "s"
-# df["Is_Independent"] = df["Lead Studio"].str.lower().eq("independent")
-# df["Critic_Audience_Gap"] = df["Audience score %"] - df["Rotten Tomatoes %"]
-#
-# # ROI Category
-# def roi_category(p):
-#     if p >= 5:
-#         return "High"
-#     elif p >= 2:
-#         return "Medium"
-#     else:
-#         return "Low"
-# df["ROI_Category"] = df["Profitability"].apply(roi_category)
-#
-# # --- Encode Categorical Variables ---
-# from sklearn.preprocessing import LabelEncoder
-# le_genre = LabelEncoder()
-# df["Genre_Label"] = le_genre.fit_transform(df["Genre"])
-#
-# # One-hot encode top 5 studios
-# top_studios = df["Lead Studio"].value_counts().nlargest(5).index
-# df = pd.get_dummies(df, columns=["Lead Studio"], prefix="Studio", dummy_na=False)
-#
-# # --- Outlier Detection ---
-# def detect_outliers_iqr(series):
-#     Q1 = series.quantile(0.25)
-#     Q3 = series.quantile(0.75)
-#     IQR = Q3 - Q1
-#     lower = Q1 - 1.5 * IQR
-#     upper = Q3 + 1.5 * IQR
-#     return series[(series < lower) | (series > upper)]
-#
-# profit_outliers = detect_outliers_iqr(df["Profitability"])
-# gross_outliers = detect_outliers_iqr(df["Worldwide Gross"])
-#
-# print(f"\nProfitability Outliers: {len(profit_outliers)}")
-# print(f"Worldwide Gross Outliers: {len(gross_outliers)}")
+df = df.drop_duplicates(subset=["Film"], keep="first")
+
+print(f"duplicated Values:\n{df.duplicated().sum()}")
+
+# --- Feature Engineering ---
+df["Decade"] = (df["Year"] // 10 * 10).astype(str) + "s"
+df["Is_Independent"] = df["Lead Studio"].str.lower().eq("independent")
+df["Critic_Audience_Gap"] = df["Audience score %"] - df["Rotten Tomatoes %"]
+df["ROI_Category"] = df["Profitability"].apply(lambda x: "Low" if (3.0 <= x < 6.0) else("Medium" if (6.0 <= x < 9.0) else "High"))
+
+
+print(df["Decade"])
+print(df["Is_Independent"])
+print(df["Critic_Audience_Gap"])
+print(df["ROI_Category"])
+
+
+# --- Outlier Detection ---
+def detect_iqr(column):
+    Q1 = column.quantile(0.25)
+    Q3 = column.quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    return column[(column < lower) | (column > upper)]
+
+profit_outliers = detect_iqr(df["Profitability"])
+gross_outliers = detect_iqr(df["Worldwide Gross"])
+
+print(f"\nNumber of Profitability Outliers: {len(profit_outliers)}\nand they are:\n{profit_outliers}")
+print(f"Number of Worldwide Gross Outliers: {len(gross_outliers)}\nand they are:\n{gross_outliers}")
+
+# Fix Data Types
+
+df["Year"] = df["Year"].astype(int)
+print(df.dtypes)
 
 # # =========================
 # # 3️⃣ EDA & Plots
